@@ -1,69 +1,155 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SYNTHGT - Personal Webpage</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f0f2f5;
-            color: #333;
-        }
-        header {
-            background-color: #4a90e2;
-            color: white;
-            padding: 20px 0;
-            text-align: center;
-        }
-        .container {
-            width: 80%;
-            margin: 20px auto;
-        }
-        .section {
-            margin: 20px 0;
-            padding: 20px;
-            background-color: white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        h1, h2 {
-            margin: 0;
-        }
-        .youtube {
-            text-align: center;
-        }
-        .youtube a {
-            color: #4a90e2;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        footer {
-            text-align: center;
-            padding: 20px 0;
-            background-color: #4a90e2;
-            color: white;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bedrock Pattern Uploader — 5×5</title>
+  <style>
+    :root{--size:48px;--gap:6px}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:18px;color:#111}
+    h1{font-size:20px;margin-bottom:6px}
+    .grid{display:grid;grid-template-columns:repeat(5,var(--size));grid-auto-rows:var(--size);gap:var(--gap);margin:12px 0}
+    .cell{width:var(--size);height:var(--size);display:flex;align-items:center;justify-content:center;border:1px solid #cfcfcf;background:#f7f7f7;cursor:pointer;user-select:none}
+    .cell.on{background:#111;color:#fff}
+    .controls{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+    button, input[type=file]{padding:8px 10px;border-radius:6px;border:1px solid #bbb;background:#fff;cursor:pointer}
+    .output{margin-top:12px}
+    textarea{width:100%;height:110px;font-family:monospace;padding:8px;border:1px solid #ddd;border-radius:6px}
+    label.small{font-size:13px;color:#555}
+    .hint{font-size:13px;color:#666;margin-top:8px}
+    .row{display:flex;gap:10px;align-items:center}
+  </style>
 </head>
 <body>
-    <header>
-        <h1>Welcome to SYNTHGT's Personal Webpage</h1>
-    </header>
-    <div class="container">
-        <div class="section">
-            <h2>About Me</h2>
-            <p>Hi, I'm SYNTHGT! Welcome to my personal webpage. I'm a content creator and tech enthusiast with a passion for sharing knowledge and entertaining my audience.</p>
-        </div>
-        <div class="section youtube">
-            <h2>My YouTube Channel</h2>
-            <p>Check out my YouTube channel where I share amazing content with my 1.64k subscribers!</p>
-            <p><a href="https://www.youtube.com/channel/UCeEj3XuwxexS9KTKJXcaXFw" target="_blank">Visit My YouTube Channel</a></p>
-        </div>
+  <h1>Bedrock Pattern Uploader — 5×5</h1>
+  <div class="hint">Click cells to toggle bedrock (dark). Or upload an image — the app will downscale it to 5×5 and auto-detect dark pixels.</div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="controls">
+    <div class="row">
+      <button id="clearBtn">Clear</button>
+      <button id="invertBtn">Invert</button>
+      <button id="randomBtn">Random</button>
     </div>
-    <footer>
-        <p>&copy; 2024 SYNTHGT. All rights reserved.</p>
-    </footer>
+
+    <div class="row">
+      <label class="small">Upload image (PNG/JPG):</label>
+      <input id="fileInput" type="file" accept="image/*" />
+      <label class="small">Threshold:</label>
+      <input id="threshold" type="range" min="0" max="255" value="128" />
+      <span id="thVal">128</span>
+    </div>
+
+    <div class="row">
+      <button id="exportJson">Export JSON</button>
+      <button id="exportText">Export 0/1 Text</button>
+      <button id="copyClipboard">Copy to Clipboard</button>
+      <button id="downloadFile">Download .json</button>
+    </div>
+  </div>
+
+  <div class="output">
+    <label class="small">Output preview:</label>
+    <textarea id="output" readonly></textarea>
+  </div>
+
+  <canvas id="scratch" width="5" height="5" style="display:none"></canvas>
+
+  <script>
+    // Build grid
+    const gridEl = document.getElementById('grid');
+    const cells = [];
+    for(let y=0;y<5;y++){
+      for(let x=0;x<5;x++){
+        const el = document.createElement('div');
+        el.className = 'cell';
+        el.dataset.x = x; el.dataset.y = y;
+        el.addEventListener('click', ()=>{ el.classList.toggle('on'); updateOutput(); });
+        gridEl.appendChild(el);
+        cells.push(el);
+      }
+    }
+
+    const outputEl = document.getElementById('output');
+    const thresholdEl = document.getElementById('threshold');
+    const thVal = document.getElementById('thVal');
+    thresholdEl.addEventListener('input', ()=>{ thVal.textContent = thresholdEl.value });
+
+    function getPattern(){
+      // returns 2D array [row][col] where 1 = bedrock(dark)
+      const out = [];
+      for(let y=0;y<5;y++){
+        const row = [];
+        for(let x=0;x<5;x++){
+          const el = cells[y*5 + x];
+          row.push(el.classList.contains('on')?1:0);
+        }
+        out.push(row);
+      }
+      return out;
+    }
+
+    function updateOutput(){
+      const pattern = getPattern();
+      outputEl.value = JSON.stringify({format:'5x5-binary',pattern:pattern}, null, 2);
+    }
+
+    document.getElementById('clearBtn').addEventListener('click', ()=>{ cells.forEach(c=>c.classList.remove('on')); updateOutput(); });
+    document.getElementById('invertBtn').addEventListener('click', ()=>{ cells.forEach(c=>c.classList.toggle('on')); updateOutput(); });
+    document.getElementById('randomBtn').addEventListener('click', ()=>{ cells.forEach(c=>Math.random()>0.6?c.classList.add('on'):c.classList.remove('on')); updateOutput(); });
+
+    // File upload & auto-detect
+    const fileInput = document.getElementById('fileInput');
+    const canvas = document.getElementById('scratch');
+    const ctx = canvas.getContext('2d');
+
+    fileInput.addEventListener('change', async (e)=>{
+      const f = e.target.files[0];
+      if(!f) return;
+      const img = await loadImageFromFile(f);
+      // draw to 5x5 canvas
+      ctx.clearRect(0,0,5,5);
+      // maintain aspect ratio, draw scaled to fit 5x5
+      ctx.drawImage(img, 0, 0, 5, 5);
+      const imgData = ctx.getImageData(0,0,5,5).data;
+      const th = parseInt(thresholdEl.value,10);
+      for(let y=0;y<5;y++){
+        for(let x=0;x<5;x++){
+          const i = (y*5 + x)*4;
+          const r = imgData[i], g = imgData[i+1], b = imgData[i+2];
+          // luminance
+          const lum = 0.2126*r + 0.7152*g + 0.0722*b;
+          const isDark = lum < th;
+          const el = cells[y*5 + x];
+          if(isDark) el.classList.add('on'); else el.classList.remove('on');
+        }
+      }
+      updateOutput();
+    });
+
+    function loadImageFromFile(file){
+      return new Promise((resolve,reject)=>{
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = ()=>{ URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
+
+    // Export/Copy/Download
+    document.getElementById('exportJson').addEventListener('click', ()=>{ outputEl.value = JSON.stringify({format:'5x5-binary',pattern:getPattern()}, null, 2); });
+    document.getElementById('exportText').addEventListener('click', ()=>{ outputEl.value = getPattern().map(r => r.join('')).join('\n'); });
+    document.getElementById('copyClipboard').addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(outputEl.value); alert('Copied to clipboard'); }catch(err){ alert('Clipboard failed: '+err); } });
+    document.getElementById('downloadFile').addEventListener('click', ()=>{
+      const blob = new Blob([outputEl.value], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'bedrock-pattern-5x5.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+
+    // initial
+    updateOutput();
+  </script>
 </body>
 </html>
